@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 struct AIService {
 
     // MARK: - AI 人设提示词
