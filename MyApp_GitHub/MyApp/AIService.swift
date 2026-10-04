@@ -56,7 +56,7 @@ struct AIService {
 
     func sendProactiveMessage(
         _ messages: [Message],
-        completion: @escaping (String) -> Void
+        completion: @escaping @Sendable (String) -> Void
     ) {
         send(messages: messages, systemPrompt: systemPrompt + "\n\n" + proactivePrompt, completion: completion)
     }
