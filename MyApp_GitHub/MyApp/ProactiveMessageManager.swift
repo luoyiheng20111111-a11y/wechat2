@@ -176,17 +176,16 @@ final class ProactiveMessageManager: NSObject, UNUserNotificationCenterDelegate 
     }
 
     // MARK: - Foreground Notification
-
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification,
-        withCompletionHandler completionHandler:
-            @escaping (UNNotificationPresentationOptions) -> Void
-    ) {
-        completionHandler([
-            .banner,
-            .sound,
-            .badge
-        ])
-    }
+nonisolated func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+) {
+    completionHandler([
+        .banner,
+        .sound,
+        .badge
+    ])
+}
+ 
 }
