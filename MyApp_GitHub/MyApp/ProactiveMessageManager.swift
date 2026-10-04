@@ -35,14 +35,15 @@ final class ProactiveMessageManager: NSObject, UNUserNotificationCenterDelegate 
 
         print("主动消息重新计时：\(minutes)分钟后检查")
 
-        timer = Timer.scheduledTimer(
-            withTimeInterval: delay,
-            repeats: false
-        ) { [weak self] _ in
-            self?.sendProactiveMessage(chatName: chatName)
-        }
+     
+timer = Timer.scheduledTimer(
+    withTimeInterval: delay,
+    repeats: false
+) { [weak self] _ in
+    Task { @MainActor in
+        self?.sendProactiveMessage(chatName: chatName)
     }
-
+}
     // MARK: - Notification Permission
 
     private func requestPermission() {
