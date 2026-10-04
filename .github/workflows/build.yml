@@ -1,0 +1,45 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build unsigned app
+        working-directory: MyApp_GitHub
+        run: |
+          xcodebuild \
+            -project MyApp.xcodeproj \
+            -scheme MyApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package IPA
+        working-directory: MyApp_GitHub
+        run: |
+          rm -rf Payload WeChat-unsigned.ipa
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/MyApp.app Payload/WeChat.app
+          ditto -c -k --sequesterRsrc --keepParent Payload WeChat-unsigned.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WeChat-unsigned-IPA
+          path: MyApp_GitHub/WeChat-unsigned.ipa
