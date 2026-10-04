@@ -45,10 +45,10 @@ struct AIService {
 
     // MARK: - Send Message
 
-    func sendMessage(
-        _ messages: [Message],
-        completion: @escaping (String) -> Void
-    ) {
+     func sendMessage(
+    _ messages: [Message],
+    completion: @escaping @Sendable (String) -> Void
+){
         send(messages: messages, systemPrompt: systemPrompt, completion: completion)
     }
 
