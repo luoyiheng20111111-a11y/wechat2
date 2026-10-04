@@ -131,28 +131,49 @@ struct ChatView: View {
     }
 
     private func sendMessage() {
-        let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+    let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !text.isEmpty else { return }
 
-        messages.append(Message(text: text, isMe: true))
-        ChatStorage.saveMessages(messages, for: chat.name)
-        ChatStorage.saveLastMessage(text, for: chat.name)
-        messageText = ""
+    messages.append(Message(text: text, isMe: true))
+    ChatStorage.saveMessages(messages, for: chat.name)
+    ChatStorage.saveLastMessage(text, for: chat.name)
+    messageText = ""
 
-        // 用户主动说话后，重新开始主动消息计时
-        ProactiveMessageManager.shared.resetTimer(chatName: chat.name)
+    // 用户主动说话后，重新开始主动消息计时
+    ProactiveMessageManager.shared.resetTimer(chatName: chat.name)
 
-        aiService.sendMessage(messages) { reply in
-            messages.append(Message(text: reply, isMe: false))
-            ChatStorage.saveMessages(messages, for: chat.name)
-            ChatStorage.saveLastMessage(reply, for: chat.name)
-            if !isChatActive { ChatStorage.addUnread(for: chat.name) }
+    aiService.sendMessage(messages) { reply in
+        Task { @MainActor in
+            messages.append(
+                Message(
+                    text: reply,
+                    isMe: false
+                )
+            )
+
+            ChatStorage.saveMessages(
+                messages,
+                for: chat.name
+            )
+
+            ChatStorage.saveLastMessage(
+                reply,
+                for: chat.name
+            )
+
+            if !isChatActive {
+                ChatStorage.addUnread(
+                    for: chat.name
+                )
+            }
 
             // AI 回复完成后，再重新开始计时
-            ProactiveMessageManager.shared.resetTimer(chatName: chat.name)
+            ProactiveMessageManager.shared.resetTimer(
+                chatName: chat.name
+            )
         }
     }
-
+}
     private func reloadMessages() {
         let saved = ChatStorage.loadMessages(for: chat.name)
         guard !saved.isEmpty else { return }
