@@ -1,6 +1,7 @@
 import Foundation
 import UserNotifications
 
+@MainActor
 final class ProactiveMessageManager: NSObject, UNUserNotificationCenterDelegate {
     static let shared = ProactiveMessageManager()
 
@@ -34,16 +35,21 @@ final class ProactiveMessageManager: NSObject, UNUserNotificationCenterDelegate 
 
         print("主动消息重新计时：\(minutes)分钟后检查")
 
-        timer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-            guard let self else { return }
-            self.sendProactiveMessage(chatName: chatName)
+        timer = Timer.scheduledTimer(
+            withTimeInterval: delay,
+            repeats: false
+        ) { [weak self] _ in
+            self?.sendProactiveMessage(chatName: chatName)
         }
     }
 
     // MARK: - Notification Permission
 
     private func requestPermission() {
-        notificationCenter.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+        notificationCenter.requestAuthorization(
+            options: [.alert, .sound, .badge]
+        ) { granted, error in
+
             if let error {
                 print("通知权限错误：\(error.localizedDescription)")
             } else {
@@ -62,36 +68,45 @@ final class ProactiveMessageManager: NSObject, UNUserNotificationCenterDelegate 
 
         isGenerating = true
 
-        let messages = ChatStorage.loadMessages(for: chatName)
+        let messages = ChatStorage.loadMessages(
+            for: chatName
+        )
 
         print("===== 开始主动消息 =====")
         print("聊天：\(chatName)")
 
         AIService().sendProactiveMessage(messages) { [weak self] reply in
-            guard let self else { return }
 
-            self.isGenerating = false
+            Task { @MainActor in
+                guard let self else {
+                    return
+                }
 
-            let message = Message(
-                text: reply,
-                isMe: false
-            )
+                self.isGenerating = false
 
-            ChatStorage.saveIncomingMessage(
-                message,
-                for: chatName
-            )
+                let message = Message(
+                    text: reply,
+                    isMe: false
+                )
 
-            print("DeepSeek 主动消息：\(reply)")
-            print("✅ 主动消息已经保存到聊天记录")
+                ChatStorage.saveIncomingMessage(
+                    message,
+                    for: chatName
+                )
 
-            self.scheduleNotification(
-                chatName: chatName,
-                message: reply
-            )
+                print("DeepSeek 主动消息：\(reply)")
+                print("主动消息已经保存到聊天记录")
 
-            // 这一轮主动消息结束后，再开启下一轮计时
-            self.resetTimer(chatName: chatName)
+                self.scheduleNotification(
+                    chatName: chatName,
+                    message: reply
+                )
+
+                // 开始下一轮计时
+                self.resetTimer(
+                    chatName: chatName
+                )
+            }
         }
     }
 
@@ -102,45 +117,59 @@ final class ProactiveMessageManager: NSObject, UNUserNotificationCenterDelegate 
         message: String
     ) {
         notificationCenter.getNotificationSettings { [weak self] settings in
-            guard let self else { return }
 
-            print("通知状态：\(settings.authorizationStatus.rawValue)")
+            Task { @MainActor in
+                guard let self else {
+                    return
+                }
 
-            guard settings.authorizationStatus == .authorized ||
-                    settings.authorizationStatus == .provisional else {
-                print("❌ 没有通知权限")
-                return
-            }
+                print(
+                    "通知状态：\(settings.authorizationStatus.rawValue)"
+                )
 
-            let content = UNMutableNotificationContent()
-            content.title = chatName
-            content.body = message
-            content.sound = .default
-            content.badge = 1
+                guard settings.authorizationStatus == .authorized ||
+                        settings.authorizationStatus == .provisional else {
 
-            // 消息保存后很快通知，模拟真实聊天软件的来消息提醒
-            let trigger = UNTimeIntervalNotificationTrigger(
-                timeInterval: 2,
-                repeats: false
-            )
+                    print("没有通知权限")
+                    return
+                }
 
-            let identifier = "proactive_" + chatName
+                let content = UNMutableNotificationContent()
 
-            let request = UNNotificationRequest(
-                identifier: identifier,
-                content: content,
-                trigger: trigger
-            )
+                content.title = chatName
+                content.body = message
+                content.sound = .default
+                content.badge = 1
 
-            self.notificationCenter.removePendingNotificationRequests(
-                withIdentifiers: [identifier]
-            )
+                let trigger = UNTimeIntervalNotificationTrigger(
+                    timeInterval: 2,
+                    repeats: false
+                )
 
-            self.notificationCenter.add(request) { error in
-                if let error {
-                    print("❌ 通知安排失败：\(error.localizedDescription)")
-                } else {
-                    print("✅ 主动消息通知已安排，2秒后发送")
+                let identifier = "proactive_" + chatName
+
+                let request = UNNotificationRequest(
+                    identifier: identifier,
+                    content: content,
+                    trigger: trigger
+                )
+
+                self.notificationCenter
+                    .removePendingNotificationRequests(
+                        withIdentifiers: [identifier]
+                    )
+
+                self.notificationCenter.add(request) { error in
+
+                    if let error {
+                        print(
+                            "通知安排失败：\(error.localizedDescription)"
+                        )
+                    } else {
+                        print(
+                            "主动消息通知已安排，2秒后发送"
+                        )
+                    }
                 }
             }
         }
@@ -151,7 +180,8 @@ final class ProactiveMessageManager: NSObject, UNUserNotificationCenterDelegate 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
-        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+        withCompletionHandler completionHandler:
+            @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         completionHandler([
             .banner,
