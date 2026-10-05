@@ -24,34 +24,6 @@ struct ContentView: View {
             lastMessage: "[图片]",
             time: "10:20",
             unread: 0
-        ),
-        ChatItem(
-            avatar: "person",
-            name: "妈妈",
-            lastMessage: "晚上回家吃饭吗",
-            time: "09:15",
-            unread: 2
-        ),
-        ChatItem(
-            avatar: "person.3",
-            name: "班级群",
-            lastMessage: "明天交作业",
-            time: "昨天",
-            unread: 9
-        ),
-        ChatItem(
-            avatar: "person",
-            name: "张三",
-            lastMessage: "收到，没问题",
-            time: "昨天",
-            unread: 0
-        ),
-        ChatItem(
-            avatar: "person.2",
-            name: "王者荣耀小队",
-            lastMessage: "五缺一",
-            time: "周一",
-            unread: 0
         )
     ]
     
