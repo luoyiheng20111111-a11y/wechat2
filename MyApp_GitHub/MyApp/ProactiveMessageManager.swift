@@ -47,14 +47,14 @@ final class ProactiveMessageManager: NSObject, UNUserNotificationCenterDelegate 
     // MARK: - Notification Permission
 
     private func requestPermission() {
-        Task { @MainActor in
-            do {
-                let granted = try await notificationCenter.requestAuthorization(
-                    options: [.alert, .sound, .badge]
-                )
-                print("通知权限：\(granted)")
-            } catch {
+        notificationCenter.requestAuthorization(
+            options: [.alert, .sound, .badge]
+        ) { @Sendable granted, error in
+
+            if let error {
                 print("通知权限错误：\(error.localizedDescription)")
+            } else {
+                print("通知权限：\(granted)")
             }
         }
     }
