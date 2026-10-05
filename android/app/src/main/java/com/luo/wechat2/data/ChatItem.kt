@@ -22,7 +22,7 @@ data class ChatItem(
 val defaultChatList: List<ChatItem> = listOf(
     ChatItem(
         avatar = "administerphoto",
-        name = "luo",
+        name = "黑咲",
         lastMessage = "[图片]",
         time = "10:20",
         unread = 0

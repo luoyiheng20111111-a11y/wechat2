@@ -91,7 +91,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             ?: AIService.defaultSystemPromptText
 
         // 保存后立即按照新的时间重新计时
-        ProactiveMessageManager.resetTimer(chatName = "luo")
+        ProactiveMessageManager.resetTimer(chatName = "黑咲")
 
         showSaved = true
     }

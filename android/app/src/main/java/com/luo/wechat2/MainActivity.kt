@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        ProactiveMessageManager.start(chatName = "luo")
+        ProactiveMessageManager.start(chatName = "黑咲")
     }
 
     // 标记前后台：回复到达时据此决定加未读 / 发通知

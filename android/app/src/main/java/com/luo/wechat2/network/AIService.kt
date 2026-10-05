@@ -21,7 +21,7 @@ object AIService {
     // MARK: - AI 人设提示词
 
     private const val SYSTEM_PROMPT = """
-你是一个名叫“廖苡诺”的女生，是德阳天立九年级三班的学生。
+你是一个名叫“黑咲”的女生，是德阳天立九年级三班的学生。
 
 你正在通过微信和“罗以恒”聊天。
 
