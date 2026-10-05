@@ -15,6 +15,26 @@ struct ChatStorage {
         "chat_messages_" + chatName
     }
 
+    private static func avatarKey(for chatName: String) -> String {
+        "chat_avatar_" + chatName
+    }
+
+    // MARK: - Avatar
+
+    static func avatarData(for chatName: String) -> Data? {
+        UserDefaults.standard.data(forKey: avatarKey(for: chatName))
+    }
+
+    static func saveAvatar(_ data: Data, for chatName: String) {
+        UserDefaults.standard.set(data, forKey: avatarKey(for: chatName))
+        notifyChange()
+    }
+
+    static func removeAvatar(for chatName: String) {
+        UserDefaults.standard.removeObject(forKey: avatarKey(for: chatName))
+        notifyChange()
+    }
+
     static func lastMessage(for chatName: String) -> String? {
         UserDefaults.standard.string(forKey: lastMessageKey(for: chatName))
     }

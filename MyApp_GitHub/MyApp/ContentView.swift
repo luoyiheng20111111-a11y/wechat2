@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import UIKit
 
 // MARK: - Chat Model
 
@@ -16,6 +18,7 @@ struct ChatItem: Identifiable {
 struct ContentView: View {
     
     @State private var chatList: [ChatItem]
+    @State private var avatarPickerItem: PhotosPickerItem?
     
     private let defaultChatList: [ChatItem] = [
         ChatItem(
@@ -155,10 +158,53 @@ struct ContentView: View {
                             }
                         }
                     }
+                    
+                    Section("聊天头像") {
+                        PhotosPicker(
+                            selection: $avatarPickerItem,
+                            matching: .images
+                        ) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "photo.on.rectangle")
+                                    .font(.system(size: 20))
+                                    .foregroundStyle(.green)
+                                    .frame(width: 28)
+                                
+                                VStack(
+                                    alignment: .leading,
+                                    spacing: 4
+                                ) {
+                                    Text("更换聊天头像")
+                                        .foregroundStyle(.primary)
+                                    
+                                    Text("给 luo 上传一张照片")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        
+                        Button {
+                            ChatStorage.removeAvatar(for: "administerphoto")
+                        } label: {
+                            Text("恢复默认头像")
+                                .foregroundStyle(.red)
+                        }
+                    }
                 }
                 .listStyle(.insetGrouped)
                 .navigationTitle("我")
                 .navigationBarTitleDisplayMode(.inline)
+                .onChange(of: avatarPickerItem) { _, newItem in
+                    guard let newItem else { return }
+                    
+                    Task {
+                        if let data = try? await newItem.loadTransferable(type: Data.self),
+                           let jpeg = AvatarImageStore.resizedJPEG(from: data) {
+                            ChatStorage.saveAvatar(jpeg, for: "administerphoto")
+                        }
+                    }
+                }
             }
             .tabItem {
                 Image(systemName: "person.fill")
@@ -310,7 +356,23 @@ struct ChatAvatar: View {
     
     var body: some View {
         
-        if systemName == "administerphoto" {
+        if let data = ChatStorage.avatarData(for: systemName),
+           let image = UIImage(data: data) {
+            
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(
+                    width: 60,
+                    height: 60
+                )
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: 10
+                    )
+                )
+            
+        } else if systemName == "administerphoto" {
             
             Image(systemName)
                 .resizable()
@@ -372,6 +434,44 @@ struct UnreadBadge: View {
         .padding(.horizontal, 3)
         .background(Color.red)
         .clipShape(Capsule())
+    }
+}
+
+// MARK: - Avatar Image Store
+
+enum AvatarImageStore {
+    
+    static func resizedJPEG(
+        from data: Data,
+        maxDimension: CGFloat = 512,
+        quality: CGFloat = 0.85
+    ) -> Data? {
+        
+        guard let image = UIImage(data: data) else {
+            return nil
+        }
+        
+        let size: CGSize
+        
+        if image.size.width > maxDimension || image.size.height > maxDimension {
+            let ratio = min(
+                maxDimension / image.size.width,
+                maxDimension / image.size.height
+            )
+            size = CGSize(
+                width: image.size.width * ratio,
+                height: image.size.height * ratio
+            )
+        } else {
+            size = image.size
+        }
+        
+        let renderer = UIGraphicsImageRenderer(size: size)
+        let resized = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+        
+        return resized.jpegData(compressionQuality: quality)
     }
 }
 
