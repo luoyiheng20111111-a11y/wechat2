@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luo.wechat2.ProactiveMessageManager
 import com.luo.wechat2.data.AppSettings
+import com.luo.wechat2.network.AIService
 import kotlinx.coroutines.delay
 
 // MARK: - AI Settings Screen
@@ -50,6 +52,11 @@ fun SettingsScreen(onBack: () -> Unit) {
     }
     var delayText by rememberSaveable {
         mutableStateOf(AppSettings.replyDelayMaxSeconds.toString())
+    }
+    var promptText by rememberSaveable {
+        mutableStateOf(
+            AppSettings.customSystemPrompt ?: AIService.defaultSystemPromptText
+        )
     }
     var showSaved by remember { mutableStateOf(false) }
 
@@ -71,6 +78,17 @@ fun SettingsScreen(onBack: () -> Unit) {
 
         minutesText = AppSettings.proactiveMinutes.toString()
         delayText = AppSettings.replyDelayMaxSeconds.toString()
+
+        // 提示词：清空或改回默认内容 → 恢复内置提示词（与 iOS 一致）
+        val trimmedPrompt = promptText.trim()
+        val defaultPrompt = AIService.defaultSystemPromptText.trim()
+
+        AppSettings.customSystemPrompt =
+            if (trimmedPrompt.isEmpty() || trimmedPrompt == defaultPrompt) null
+            else promptText
+
+        promptText = AppSettings.customSystemPrompt
+            ?: AIService.defaultSystemPromptText
 
         // 保存后立即按照新的时间重新计时
         ProactiveMessageManager.resetTimer(chatName = "luo")
@@ -158,6 +176,39 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
             }
 
+            SectionTitle(text = "提示词")
+
+            SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Column {
+                    // 对应 iOS 的 TextEditor，固定高度、内部可滚动
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(260.dp)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                    ) {
+                        BasicTextField(
+                            value = promptText,
+                            onValueChange = { promptText = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = TextStyle(
+                                color = Color.Black,
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp
+                            ),
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.None
+                            )
+                        )
+                    }
+
+                    HintText(
+                        text = "自定义 AI 的系统提示词，保存后立即生效。改回默认内容再保存，即可恢复内置提示词。"
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
 
             SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -181,18 +232,6 @@ fun SettingsScreen(onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
-}
-
-// MARK: - Section Title
-
-@Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        fontSize = 13.sp,
-        color = SecondaryText,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-    )
 }
 
 // MARK: - Number Row

@@ -7,6 +7,7 @@ object AppSettings {
     private const val API_KEY = "deepseek_api_key"
     private const val PROACTIVE_MINUTES = "proactive_minutes"
     private const val REPLY_DELAY_MAX = "reply_delay_max_seconds"
+    private const val CUSTOM_SYSTEM_PROMPT = "custom_system_prompt"
 
     private val prefs get() = WeChatApp.instance.prefs
 
@@ -39,5 +40,20 @@ object AppSettings {
         }
         set(value) {
             prefs.edit().putInt(REPLY_DELAY_MAX, value.coerceIn(0, 600)).apply()
+        }
+
+    // MARK: - Custom System Prompt
+
+    var customSystemPrompt: String?
+        get() {
+            val value = prefs.getString(CUSTOM_SYSTEM_PROMPT, null) ?: return null
+            return if (value.trim().isEmpty()) null else value
+        }
+        set(value) {
+            if (value == null) {
+                prefs.edit().remove(CUSTOM_SYSTEM_PROMPT).apply()
+            } else {
+                prefs.edit().putString(CUSTOM_SYSTEM_PROMPT, value).apply()
+            }
         }
 }

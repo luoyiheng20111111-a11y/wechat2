@@ -1,5 +1,6 @@
 package com.luo.wechat2.data
 
+import android.util.Base64
 import com.luo.wechat2.WeChatApp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,36 @@ object ChatStorage {
     private fun unreadKey(chatName: String) = "chat_unread_$chatName"
 
     private fun messagesKey(chatName: String) = "chat_messages_$chatName"
+
+    private fun avatarKey(chatName: String) = "chat_avatar_$chatName"
+
+    // MARK: - Avatar
+    // 对应 iOS 的 ChatStorage.avatarData/saveAvatar/removeAvatar
+    // SharedPreferences 没有 byte[] 接口，这里用 Base64 字符串存
+
+    fun avatarBase64(chatName: String): String? =
+        prefs.getString(avatarKey(chatName), null)
+
+    fun avatarData(chatName: String): ByteArray? {
+        val raw = avatarBase64(chatName) ?: return null
+        return try {
+            Base64.decode(raw, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun saveAvatar(data: ByteArray, chatName: String) {
+        prefs.edit()
+            .putString(avatarKey(chatName), Base64.encodeToString(data, Base64.NO_WRAP))
+            .apply()
+        notifyChange()
+    }
+
+    fun removeAvatar(chatName: String) {
+        prefs.edit().remove(avatarKey(chatName)).apply()
+        notifyChange()
+    }
 
     // MARK: - Last Message
 

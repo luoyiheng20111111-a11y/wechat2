@@ -45,6 +45,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.luo.wechat2.AppState
 import com.luo.wechat2.ProactiveMessageManager
 import com.luo.wechat2.data.AppSettings
 import com.luo.wechat2.data.ChatItem
@@ -63,6 +64,7 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
     var isActive by remember(chat.name) { mutableStateOf(true) }
 
     val storageVersion by ChatStorage.version.collectAsState()
+    val appForeground by AppState.foreground.collectAsState()
     val listState = rememberLazyListState()
     val handler = remember { Handler(Looper.getMainLooper()) }
 
@@ -95,8 +97,14 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
                 ChatStorage.saveMessages(updated, chat.name)
                 ChatStorage.saveLastMessage(reply, chat.name)
 
-                if (!isActive) {
+                // 不在会话里（iOS 原逻辑）或 App 已退到后台 → 记未读
+                if (!isActive || !appForeground) {
                     ChatStorage.addUnread(chat.name)
+                }
+
+                // App 不在前台时直接发通知：后台也能收到消息
+                if (!appForeground) {
+                    ProactiveMessageManager.showReplyNotification(chat.name, reply)
                 }
 
                 // AI 回复完成后，再重新开始计时
@@ -116,7 +124,7 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
                     messages.clear()
                     messages.addAll(saved)
                 }
-                if (isActive) {
+                if (isActive && appForeground) {
                     ChatStorage.markAsRead(chat.name)
                 }
             }
@@ -126,6 +134,11 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
                 messages.add(Message(text = "你好！", isMe = true))
             }
         }
+    }
+
+    // 对应 iOS onAppear：进入会话重新开始主动消息计时
+    LaunchedEffect(chat.name) {
+        ProactiveMessageManager.resetTimer(chat.name)
     }
 
     // MARK: 自动滚动到底部

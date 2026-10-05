@@ -1,6 +1,9 @@
 package com.luo.wechat2.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Psychology
@@ -30,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,12 +42,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.luo.wechat2.data.AvatarImageStore
 import com.luo.wechat2.data.ChatItem
 import com.luo.wechat2.data.ChatStorage
 import com.luo.wechat2.data.defaultChatList
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 // MARK: - Main Screen
 
@@ -257,6 +266,23 @@ private fun PlaceholderTab(title: String) {
 
 @Composable
 private fun MeScreen(onOpenAiSettings: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // 对应 iOS 的 PhotosPicker：选图 → 压缩 → 存为 luo 的聊天头像
+    val avatarPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                val jpeg = AvatarImageStore.resizedJpeg(context, uri)
+                if (jpeg != null) {
+                    ChatStorage.saveAvatar(jpeg, "administerphoto")
+                }
+            }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         AppTopBar(title = "我")
 
@@ -302,6 +328,73 @@ private fun MeScreen(onOpenAiSettings: () -> Unit) {
                         fontSize = 16.sp,
                         color = Color(0xFFC7C7CC)
                     )
+                }
+            }
+
+            SectionTitle(text = "聊天头像")
+
+            SectionCard {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                avatarPicker.launch(
+                                    PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                                    )
+                                )
+                            }
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Image,
+                            contentDescription = null,
+                            tint = WeChatGreen,
+                            modifier = Modifier.size(26.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "更换聊天头像",
+                                fontSize = 17.sp,
+                                color = Color.Black
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "给 luo 上传一张照片",
+                                fontSize = 13.sp,
+                                color = SecondaryText
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 14.dp)
+                            .height(1.dp)
+                            .background(Color.Black.copy(alpha = 0.06f))
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                ChatStorage.removeAvatar("administerphoto")
+                            }
+                            .padding(horizontal = 14.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "恢复默认头像",
+                            fontSize = 17.sp,
+                            color = Color.Red
+                        )
+                    }
                 }
             }
         }

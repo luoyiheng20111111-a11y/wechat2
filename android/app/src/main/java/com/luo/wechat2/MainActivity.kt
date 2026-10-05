@@ -32,6 +32,17 @@ class MainActivity : ComponentActivity() {
         ProactiveMessageManager.start(chatName = "luo")
     }
 
+    // 标记前后台：回复到达时据此决定加未读 / 发通知
+    override fun onStart() {
+        super.onStart()
+        AppState.setForeground(true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppState.setForeground(false)
+    }
+
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(

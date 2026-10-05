@@ -1,5 +1,7 @@
 package com.luo.wechat2.ui
 
+import android.graphics.BitmapFactory
+import android.util.Base64
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,10 +27,14 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -38,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luo.wechat2.R
+import com.luo.wechat2.data.ChatStorage
 
 // MARK: - Clickable
 
@@ -150,7 +157,30 @@ fun SearchBar() {
 
 @Composable
 fun ChatAvatar(avatar: String, size: Dp, corner: Dp) {
-    if (avatar == "administerphoto") {
+    // 对应 iOS 的 ChatAvatar：优先显示用户在“我 → 聊天头像”里上传的照片
+    val storageVersion by ChatStorage.version.collectAsState()
+    val rawAvatar = remember(avatar, storageVersion) { ChatStorage.avatarBase64(avatar) }
+    val customBitmap = remember(rawAvatar) {
+        rawAvatar?.let { encoded ->
+            val bytes = try {
+                Base64.decode(encoded, Base64.NO_WRAP)
+            } catch (e: Exception) {
+                null
+            }
+            bytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
+        }
+    }
+
+    if (customBitmap != null) {
+        Image(
+            bitmap = customBitmap,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(size)
+                .clip(RoundedCornerShape(corner))
+        )
+    } else if (avatar == "administerphoto") {
         Image(
             painter = painterResource(id = R.drawable.administerphoto),
             contentDescription = null,
@@ -175,6 +205,18 @@ fun ChatAvatar(avatar: String, size: Dp, corner: Dp) {
             )
         }
     }
+}
+
+// MARK: - Section Title
+
+@Composable
+fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        fontSize = 13.sp,
+        color = SecondaryText,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+    )
 }
 
 // MARK: - Unread Badge
