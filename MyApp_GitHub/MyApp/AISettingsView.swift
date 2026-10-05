@@ -4,6 +4,7 @@ struct AISettingsView: View {
     
     @State private var apiKey = ""
     @State private var minutesText = "30"
+    @State private var delayText = "3"
     @State private var showSaved = false
     
     var body: some View {
@@ -44,6 +45,29 @@ struct AISettingsView: View {
                     .foregroundStyle(.secondary)
             }
             
+            Section("回复延迟") {
+                HStack {
+                    Text("最大延迟")
+                    
+                    Spacer()
+                    
+                    TextField(
+                        "秒",
+                        text: $delayText
+                    )
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 80)
+                    
+                    Text("秒")
+                        .foregroundStyle(.secondary)
+                }
+                
+                Text("AI 回复前会在 0 到该秒数之间随机等待。0 表示立即回复，最多 600 秒。")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            
             Section {
                 Button {
                     saveSettings()
@@ -63,6 +87,7 @@ struct AISettingsView: View {
         .onAppear {
             apiKey = AppSettings.apiKey
             minutesText = String(AppSettings.proactiveMinutes)
+            delayText = String(AppSettings.replyDelayMaxSeconds)
         }
     }
     
@@ -73,9 +98,13 @@ struct AISettingsView: View {
         
         let minutes = Int(minutesText) ?? 30
         
+        let delay = Int(delayText) ?? AppSettings.replyDelayMaxSeconds
+        
         AppSettings.apiKey = cleanKey
         AppSettings.proactiveMinutes = max(1, minutes)
+        AppSettings.replyDelayMaxSeconds = min(600, max(0, delay))
         minutesText = String(AppSettings.proactiveMinutes)
+        delayText = String(AppSettings.replyDelayMaxSeconds)
         
         // 保存后立即按照新的时间重新计时
         ProactiveMessageManager.shared.resetTimer(

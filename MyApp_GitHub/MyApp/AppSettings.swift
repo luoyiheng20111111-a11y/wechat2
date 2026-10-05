@@ -4,6 +4,7 @@ struct AppSettings {
     
     private static let apiKeyKey = "deepseek_api_key"
     private static let proactiveMinutesKey = "proactive_minutes"
+    private static let replyDelayMaxKey = "reply_delay_max_seconds"
     
     // MARK: - DeepSeek API Key
     
@@ -34,6 +35,26 @@ struct AppSettings {
             UserDefaults.standard.set(
                 max(1, newValue),
                 forKey: proactiveMinutesKey
+            )
+        }
+    }
+    
+    // MARK: - AI Reply Delay
+    
+    static var replyDelayMaxSeconds: Int {
+        get {
+            guard UserDefaults.standard.object(forKey: replyDelayMaxKey) != nil else {
+                return 3
+            }
+            let value = UserDefaults.standard.integer(
+                forKey: replyDelayMaxKey
+            )
+            return (0...600).contains(value) ? value : 3
+        }
+        set {
+            UserDefaults.standard.set(
+                min(600, max(0, newValue)),
+                forKey: replyDelayMaxKey
             )
         }
     }

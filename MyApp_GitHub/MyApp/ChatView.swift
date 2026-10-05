@@ -142,35 +142,47 @@ struct ChatView: View {
     // 用户主动说话后，重新开始主动消息计时
     ProactiveMessageManager.shared.resetTimer(chatName: chat.name)
 
-    aiService.sendMessage(messages) { reply in
-        Task { @MainActor in
-            messages.append(
-                Message(
-                    text: reply,
-                    isMe: false
+    let maxDelay = AppSettings.replyDelayMaxSeconds
+
+    Task { @MainActor in
+
+        if maxDelay > 0 {
+            let seconds = Double.random(in: 0...Double(maxDelay))
+            try? await Task.sleep(
+                nanoseconds: UInt64(seconds * 1_000_000_000)
+            )
+        }
+
+        aiService.sendMessage(messages) { reply in
+            Task { @MainActor in
+                messages.append(
+                    Message(
+                        text: reply,
+                        isMe: false
+                    )
                 )
-            )
 
-            ChatStorage.saveMessages(
-                messages,
-                for: chat.name
-            )
-
-            ChatStorage.saveLastMessage(
-                reply,
-                for: chat.name
-            )
-
-            if !isChatActive {
-                ChatStorage.addUnread(
+                ChatStorage.saveMessages(
+                    messages,
                     for: chat.name
                 )
-            }
 
-            // AI 回复完成后，再重新开始计时
-            ProactiveMessageManager.shared.resetTimer(
-                chatName: chat.name
-            )
+                ChatStorage.saveLastMessage(
+                    reply,
+                    for: chat.name
+                )
+
+                if !isChatActive {
+                    ChatStorage.addUnread(
+                        for: chat.name
+                    )
+                }
+
+                // AI 回复完成后，再重新开始计时
+                ProactiveMessageManager.shared.resetTimer(
+                    chatName: chat.name
+                )
+            }
         }
     }
 }
