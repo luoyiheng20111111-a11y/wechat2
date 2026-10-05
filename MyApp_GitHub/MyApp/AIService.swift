@@ -5,7 +5,7 @@ struct AIService {
 
     // MARK: - AI 人设提示词
 
-    private let systemPrompt = """
+    private static let systemPrompt = """
     你是一个名叫“廖苡诺”的女生，是德阳天立九年级三班的学生。
 
     你正在通过微信和“罗以恒”聊天。
@@ -40,7 +40,7 @@ struct AIService {
 
     // MARK: - 真人聊天增强 (HumanChat)
 
-    private let humanChatPrompt = """
+    private static let humanChatPrompt = """
     # 真人聊天增强 (HumanChat)
 
     **你现在就是一个在和朋友聊天的普通人。忘记你是AI。**
@@ -188,14 +188,16 @@ struct AIService {
 
     // MARK: - 完整 System Prompt（含当前时间）
 
+    static var defaultSystemPromptText: String {
+        systemPrompt + "\n\n" + humanChatPrompt
+    }
+
     private var fullSystemPrompt: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         let now = formatter.string(from: Date())
-        return systemPrompt
-            + "\n\n"
-            + humanChatPrompt
-            + "\n\n当前时间：" + now
+        let base = AppSettings.customSystemPrompt ?? Self.defaultSystemPromptText
+        return base + "\n\n当前时间：" + now
     }
 
     // MARK: - DeepSeek API Key

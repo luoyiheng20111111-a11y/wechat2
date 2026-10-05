@@ -1,0 +1,43 @@
+package com.luo.wechat2.data
+
+import com.luo.wechat2.WeChatApp
+
+object AppSettings {
+
+    private const val API_KEY = "deepseek_api_key"
+    private const val PROACTIVE_MINUTES = "proactive_minutes"
+    private const val REPLY_DELAY_MAX = "reply_delay_max_seconds"
+
+    private val prefs get() = WeChatApp.instance.prefs
+
+    // MARK: - DeepSeek API Key
+
+    var apiKey: String
+        get() = prefs.getString(API_KEY, "") ?: ""
+        set(value) {
+            prefs.edit().putString(API_KEY, value).apply()
+        }
+
+    // MARK: - Proactive Message Interval
+
+    var proactiveMinutes: Int
+        get() {
+            val value = prefs.getInt(PROACTIVE_MINUTES, 0)
+            return if (value > 0) value else 30
+        }
+        set(value) {
+            prefs.edit().putInt(PROACTIVE_MINUTES, maxOf(1, value)).apply()
+        }
+
+    // MARK: - AI Reply Delay
+
+    var replyDelayMaxSeconds: Int
+        get() {
+            if (!prefs.contains(REPLY_DELAY_MAX)) return 3
+            val value = prefs.getInt(REPLY_DELAY_MAX, 3)
+            return if (value in 0..600) value else 3
+        }
+        set(value) {
+            prefs.edit().putInt(REPLY_DELAY_MAX, value.coerceIn(0, 600)).apply()
+        }
+}

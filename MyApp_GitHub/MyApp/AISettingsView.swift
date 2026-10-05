@@ -5,6 +5,7 @@ struct AISettingsView: View {
     @State private var apiKey = ""
     @State private var minutesText = "30"
     @State private var delayText = "3"
+    @State private var promptText = ""
     @State private var showSaved = false
     
     var body: some View {
@@ -68,6 +69,17 @@ struct AISettingsView: View {
                     .foregroundStyle(.secondary)
             }
             
+            Section("提示词") {
+                TextEditor(text: $promptText)
+                    .font(.system(size: 14))
+                    .frame(height: 260)
+                    .autocorrectionDisabled()
+                
+                Text("自定义 AI 的系统提示词，保存后立即生效。改回默认内容再保存，即可恢复内置提示词。")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            
             Section {
                 Button {
                     saveSettings()
@@ -88,6 +100,8 @@ struct AISettingsView: View {
             apiKey = AppSettings.apiKey
             minutesText = String(AppSettings.proactiveMinutes)
             delayText = String(AppSettings.replyDelayMaxSeconds)
+            promptText = AppSettings.customSystemPrompt
+                ?? AIService.defaultSystemPromptText
         }
     }
     
@@ -105,6 +119,21 @@ struct AISettingsView: View {
         AppSettings.replyDelayMaxSeconds = min(600, max(0, delay))
         minutesText = String(AppSettings.proactiveMinutes)
         delayText = String(AppSettings.replyDelayMaxSeconds)
+        
+        let trimmedPrompt = promptText.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        let defaultPrompt = AIService.defaultSystemPromptText.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        
+        if trimmedPrompt.isEmpty || trimmedPrompt == defaultPrompt {
+            AppSettings.customSystemPrompt = nil
+        } else {
+            AppSettings.customSystemPrompt = promptText
+        }
+        promptText = AppSettings.customSystemPrompt
+            ?? AIService.defaultSystemPromptText
         
         // 保存后立即按照新的时间重新计时
         ProactiveMessageManager.shared.resetTimer(

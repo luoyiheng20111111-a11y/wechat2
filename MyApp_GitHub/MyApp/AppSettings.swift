@@ -5,6 +5,7 @@ struct AppSettings {
     private static let apiKeyKey = "deepseek_api_key"
     private static let proactiveMinutesKey = "proactive_minutes"
     private static let replyDelayMaxKey = "reply_delay_max_seconds"
+    private static let customSystemPromptKey = "custom_system_prompt"
     
     // MARK: - DeepSeek API Key
     
@@ -56,6 +57,30 @@ struct AppSettings {
                 min(600, max(0, newValue)),
                 forKey: replyDelayMaxKey
             )
+        }
+    }
+    
+    // MARK: - Custom System Prompt
+    
+    static var customSystemPrompt: String? {
+        get {
+            if let value = UserDefaults.standard.string(forKey: customSystemPromptKey),
+               !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return value
+            }
+            return nil
+        }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(
+                    newValue,
+                    forKey: customSystemPromptKey
+                )
+            } else {
+                UserDefaults.standard.removeObject(
+                    forKey: customSystemPromptKey
+                )
+            }
         }
     }
 }
