@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -87,8 +88,8 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
         }
 
         handler.postDelayed({
-            AIService.sendMessage(messages.toList()) { reply ->
-                val updated = messages.toMutableList()
+            AIService.sendMessage(ChatStorage.loadMessages(chat.name)) { reply ->
+                val updated = ChatStorage.loadMessages(chat.name).toMutableList()
                 updated.add(Message(text = reply, isMe = false))
 
                 ChatStorage.saveMessages(updated, chat.name)
@@ -261,13 +262,14 @@ private fun InputBar(
             onValueChange = onTextChange,
             modifier = Modifier
                 .weight(1f)
-                .height(38.dp)
+                .heightIn(min = 38.dp)
                 .background(Color.Black, RoundedCornerShape(5.dp))
                 .padding(horizontal = 10.dp, vertical = 9.dp),
             textStyle = TextStyle(
                 color = Color.White,
                 fontSize = 15.sp
             ),
+            maxLines = 4,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { onSend() })
         )

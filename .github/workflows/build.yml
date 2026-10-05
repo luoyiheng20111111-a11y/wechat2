@@ -1,3 +1,13 @@
+# ============================================================
+# 备注：这是【Swift / iOS 端】打包流程（Xcode 构建 unsigned IPA）
+#
+# 与 Android 完全分开：
+#   - Android APK 打包见 .github/workflows/android.yml
+#   - 本文件只负责 MyApp_GitHub/ 下的 Swift 源码
+#   - 只有 Swift 代码变动才触发，避免和 Android 打包互相干扰
+#
+# 产物：Artifacts 里的 WeChat-unsigned-IPA
+# ============================================================
 name: Build iOS IPA
 
 on:
@@ -5,6 +15,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'MyApp_GitHub/**'
+      - '.github/workflows/build.yml'
 
 jobs:
   build:
