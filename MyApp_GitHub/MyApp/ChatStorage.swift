@@ -39,6 +39,7 @@ struct ChatStorage {
     }
 
     static func markAsRead(for chatName: String) {
+        guard unreadCount(for: chatName) != 0 else { return }
         UserDefaults.standard.set(0, forKey: unreadKey(for: chatName))
         notifyChange()
     }

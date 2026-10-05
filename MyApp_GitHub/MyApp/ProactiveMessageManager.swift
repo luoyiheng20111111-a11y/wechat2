@@ -13,13 +13,13 @@ final class ProactiveMessageManager: NSObject, UNUserNotificationCenterDelegate 
     private override init() {
         super.init()
         notificationCenter.delegate = self
-        requestPermission()
     }
 
     // MARK: - Start
 
     func start(chatName: String) {
         currentChatName = chatName
+        requestPermission()
         resetTimer(chatName: chatName)
     }
 
@@ -47,14 +47,14 @@ final class ProactiveMessageManager: NSObject, UNUserNotificationCenterDelegate 
     // MARK: - Notification Permission
 
     private func requestPermission() {
-        notificationCenter.requestAuthorization(
-            options: [.alert, .sound, .badge]
-        ) { granted, error in
-
-            if let error {
-                print("通知权限错误：\(error.localizedDescription)")
-            } else {
+        Task { @MainActor in
+            do {
+                let granted = try await notificationCenter.requestAuthorization(
+                    options: [.alert, .sound, .badge]
+                )
                 print("通知权限：\(granted)")
+            } catch {
+                print("通知权限错误：\(error.localizedDescription)")
             }
         }
     }
@@ -117,61 +117,55 @@ final class ProactiveMessageManager: NSObject, UNUserNotificationCenterDelegate 
         chatName: String,
         message: String
     ) {
-        notificationCenter.getNotificationSettings { [weak self] settings in
+        Task { @MainActor in
 
-            Task { @MainActor in
-                guard let self else {
-                    return
-                }
+            let settings = await notificationCenter.notificationSettings()
 
+            print(
+                "通知状态：\(settings.authorizationStatus.rawValue)"
+            )
+
+            guard settings.authorizationStatus == .authorized ||
+                    settings.authorizationStatus == .provisional else {
+
+                print("没有通知权限")
+                return
+            }
+
+            let content = UNMutableNotificationContent()
+
+            content.title = chatName
+            content.body = message
+            content.sound = .default
+            content.badge = 1
+
+            let trigger = UNTimeIntervalNotificationTrigger(
+                timeInterval: 2,
+                repeats: false
+            )
+
+            let identifier = "proactive_" + chatName
+
+            let request = UNNotificationRequest(
+                identifier: identifier,
+                content: content,
+                trigger: trigger
+            )
+
+            notificationCenter
+                .removePendingNotificationRequests(
+                    withIdentifiers: [identifier]
+                )
+
+            do {
+                try await notificationCenter.add(request)
                 print(
-                    "通知状态：\(settings.authorizationStatus.rawValue)"
+                    "主动消息通知已安排，2秒后发送"
                 )
-
-                guard settings.authorizationStatus == .authorized ||
-                        settings.authorizationStatus == .provisional else {
-
-                    print("没有通知权限")
-                    return
-                }
-
-                let content = UNMutableNotificationContent()
-
-                content.title = chatName
-                content.body = message
-                content.sound = .default
-                content.badge = 1
-
-                let trigger = UNTimeIntervalNotificationTrigger(
-                    timeInterval: 2,
-                    repeats: false
+            } catch {
+                print(
+                    "通知安排失败：\(error.localizedDescription)"
                 )
-
-                let identifier = "proactive_" + chatName
-
-                let request = UNNotificationRequest(
-                    identifier: identifier,
-                    content: content,
-                    trigger: trigger
-                )
-
-                self.notificationCenter
-                    .removePendingNotificationRequests(
-                        withIdentifiers: [identifier]
-                    )
-
-                self.notificationCenter.add(request) { error in
-
-                    if let error {
-                        print(
-                            "通知安排失败：\(error.localizedDescription)"
-                        )
-                    } else {
-                        print(
-                            "主动消息通知已安排，2秒后发送"
-                        )
-                    }
-                }
             }
         }
     }
