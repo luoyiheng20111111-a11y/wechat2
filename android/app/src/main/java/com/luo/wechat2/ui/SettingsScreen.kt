@@ -1,5 +1,7 @@
 package com.luo.wechat2.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -42,6 +45,9 @@ import com.luo.wechat2.data.AppSettings
 import com.luo.wechat2.data.ChatStorage
 import com.luo.wechat2.network.AIService
 import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // MARK: - AI Settings Screen
 
@@ -64,11 +70,67 @@ fun SettingsScreen(onBack: () -> Unit) {
         )
     }
     var showSaved by remember { mutableStateOf(false) }
+    var transferStatus by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
 
     LaunchedEffect(showSaved) {
         if (showSaved) {
             delay(1500)
             showSaved = false
+        }
+    }
+
+    LaunchedEffect(transferStatus) {
+        if (transferStatus != null) {
+            delay(4000)
+            transferStatus = null
+        }
+    }
+
+    // MARK: 导出 / 导入聊天记录
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            transferStatus = try {
+                val json = ChatStorage.exportChat(AppSettings.chatDisplayName)
+                val stream = try {
+                    context.contentResolver.openOutputStream(uri, "wt")
+                } catch (e: Exception) {
+                    context.contentResolver.openOutputStream(uri)
+                } ?: throw IllegalStateException("无法打开文件")
+
+                stream.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+
+                val count = ChatStorage.loadMessages(AppSettings.chatDisplayName).size
+                "已导出 $count 条消息"
+            } catch (e: Exception) {
+                "导出失败：${e.message ?: "无法写入文件"}"
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            transferStatus = try {
+                val text = context.contentResolver.openInputStream(uri)
+                    ?.use { it.readBytes().toString(Charsets.UTF_8) }
+                    ?: throw IllegalStateException("无法读取文件")
+
+                ChatStorage.importChat(AppSettings.chatDisplayName, text).fold(
+                    onSuccess = { n ->
+                        val total = ChatStorage.loadMessages(AppSettings.chatDisplayName).size
+                        "已导入 $n 条消息，现共 $total 条"
+                    },
+                    onFailure = { e -> "导入失败：${e.message ?: "文件格式不正确"}" }
+                )
+            } catch (e: Exception) {
+                "导入失败：${e.message ?: "无法读取文件"}"
+            }
         }
     }
 
@@ -247,6 +309,55 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
             }
 
+            SectionTitle(text = "聊天记录")
+
+            SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Column {
+                    TransferRow(
+                        label = "导出聊天记录",
+                        action = "导出"
+                    ) {
+                        val stamp = SimpleDateFormat(
+                            "yyyyMMdd_HHmm",
+                            Locale.getDefault()
+                        ).format(Date())
+                        exportLauncher.launch(
+                            "wechat_${AppSettings.chatDisplayName}_$stamp.json"
+                        )
+                    }
+
+                    TransferRow(
+                        label = "导入聊天记录",
+                        action = "导入"
+                    ) {
+                        importLauncher.launch(
+                            arrayOf(
+                                "application/json",
+                                "application/octet-stream",
+                                "text/plain"
+                            )
+                        )
+                    }
+
+                    HintText(
+                        text = "导出为 JSON 文件备份；导入时选择文件，" +
+                            "记录会追加到当前聊天末尾，聊天页面和 AI 都能看到。"
+                    )
+
+                    transferStatus?.let { status ->
+                        Text(
+                            text = status,
+                            fontSize = 12.sp,
+                            color = WeChatGreen,
+                            modifier = Modifier.padding(
+                                horizontal = 14.dp,
+                                vertical = 6.dp
+                            )
+                        )
+                    }
+                }
+            }
+
             SectionTitle(text = "提示词")
 
             SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -381,6 +492,36 @@ private fun NameRow(
                 textAlign = TextAlign.End
             ),
             singleLine = true
+        )
+    }
+}
+
+// MARK: - Transfer Row（导出 / 导入）
+
+@Composable
+private fun TransferRow(
+    label: String,
+    action: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 16.sp,
+            color = Color.Black,
+            modifier = Modifier.weight(1f)
+        )
+
+        Text(
+            text = action,
+            fontSize = 16.sp,
+            color = WeChatGreen
         )
     }
 }

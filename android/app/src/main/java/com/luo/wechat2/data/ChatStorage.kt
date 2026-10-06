@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 object ChatStorage {
@@ -130,8 +133,7 @@ object ChatStorage {
         }
     }
 
-    @Synchronized
-    fun saveMessages(messages: List<Message>, chatName: String) {
+    private fun messagesToJson(messages: List<Message>): JSONArray {
         val array = JSONArray()
         messages.forEach { message ->
             array.put(
@@ -141,7 +143,14 @@ object ChatStorage {
                     .put("isMe", message.isMe)
             )
         }
-        prefs.edit().putString(messagesKey(chatName), array.toString()).apply()
+        return array
+    }
+
+    @Synchronized
+    fun saveMessages(messages: List<Message>, chatName: String) {
+        prefs.edit()
+            .putString(messagesKey(chatName), messagesToJson(messages).toString())
+            .apply()
         notifyChange()
     }
 
@@ -152,6 +161,75 @@ object ChatStorage {
         saveMessages(messages, chatName)
         saveLastMessage(message.text, chatName)
         addUnread(chatName)
+    }
+
+    // MARK: - 导出 / 导入聊天记录
+
+    // 导出为 JSON 文件（含消息、最后一条预览、头像）
+    @Synchronized
+    fun exportChat(chatName: String): String {
+        val json = JSONObject()
+            .put("format", "wechat2-chat-export")
+            .put("version", 1)
+            .put("chatName", chatName)
+            .put(
+                "exportedAt",
+                SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
+            )
+            .put("messages", messagesToJson(loadMessages(chatName)))
+            .put("lastMessage", lastMessage(chatName) ?: "")
+
+        avatarBase64(chatName)?.let { json.put("avatar", it) }
+
+        return try {
+            json.toString(2)
+        } catch (e: Exception) {
+            json.toString()
+        }
+    }
+
+    // 导入：追加到当前记录末尾。先整体解析校验，全部通过才落盘，失败不动现有数据。
+    // 返回追加的条数；失败返回原因。
+    @Synchronized
+    fun importChat(chatName: String, jsonText: String): Result<Int> {
+        val (imported, exportedAvatar) = try {
+            val root = JSONObject(jsonText)
+
+            if (root.optString("format") != "wechat2-chat-export") {
+                return Result.failure(Exception("不是本应用导出的聊天记录文件"))
+            }
+
+            val array = root.optJSONArray("messages")
+                ?: return Result.failure(Exception("文件里没有消息记录"))
+            if (array.length() == 0) {
+                return Result.failure(Exception("文件里没有消息记录"))
+            }
+
+            val messages = (0 until array.length()).map { index ->
+                val item = array.getJSONObject(index)
+                Message(
+                    // 重新生成 id：避免重复导入同一文件时 LazyColumn key 冲突导致崩溃
+                    id = UUID.randomUUID().toString(),
+                    text = item.optString("text"),
+                    isMe = item.optBoolean("isMe", false)
+                )
+            }
+            messages to root.optString("avatar")
+        } catch (e: Exception) {
+            return Result.failure(Exception("文件格式不正确，无法解析"))
+        }
+
+        // 全部解析成功后才开始写入
+        saveMessages(loadMessages(chatName) + imported, chatName)
+        imported.lastOrNull()?.let { saveLastMessage(it.text, chatName) }
+
+        // 头像：导出文件里有、本地没有时恢复；已有则不覆盖
+        if (avatarBase64(chatName) == null && exportedAvatar.isNotEmpty()) {
+            prefs.edit().putString(avatarKey(chatName), exportedAvatar).apply()
+            notifyChange()
+        }
+
+        return Result.success(imported.size)
     }
 
     private fun notifyChange() {
