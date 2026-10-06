@@ -1,0 +1,89 @@
+# ============================================================
+# 备注：这是【Android 端】打包流程（Gradle 构建 APK）
+#
+# 与 Swift / iOS 完全分开：
+#   - iOS / Swift 打包见 .github/workflows/build.yml（macOS + Xcode，产出 IPA）
+#   - 本文件只负责 android/ 目录（ubuntu + Gradle，产出 APK）
+#   - 只有 Android 代码变动才触发，互不干扰
+#
+# 产物：Artifacts 里的 WeChat-Android-APK（app-release.apk，已签名可直接安装）
+#
+# 签名说明：
+#   优先从 Secret RELEASE_KEYSTORE_B64 解码 keystore（固定签名，保证每次构建
+#   的包都能覆盖安装升级，不会因签名变化导致用户被迫卸载丢聊天记录）。
+#   Secret 缺失时退回旧逻辑：actions/cache 缓存，首次运行生成 release.jks。
+#   密码写在 android/app/build.gradle（android123 / 别名 wechat），仅供本项目自用。
+#   本地备份在 android/keystore/release.jks（已被 android/.gitignore 忽略，不进 git）。
+# ============================================================
+name: Debug Android Copy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Cache release keystore
+        uses: actions/cache@v4
+        with:
+          path: android/keystore/release.jks
+          key: android-release-keystore-v1
+
+      # 固定签名：Secret 存在时以它为准（覆盖缓存恢复的文件），
+      # 打印 sha256 便于核对签名与历史包一致
+      - name: Restore keystore from secret (fixed signature)
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            mkdir -p android/keystore
+            printf '%s' "$KEYSTORE_B64" | base64 -d > android/keystore/release.jks
+            echo "keystore-source=secret"
+          else
+            echo "keystore-source=cache-or-generated (secret not set)"
+          fi
+          if [ -f android/keystore/release.jks ]; then
+            echo "keystore-sha256=$(sha256sum android/keystore/release.jks | cut -d' ' -f1)"
+          fi
+
+      - name: Create release keystore
+        run: |
+          if [ ! -f android/keystore/release.jks ]; then
+            mkdir -p android/keystore
+            keytool -genkeypair -v \
+              -keystore android/keystore/release.jks \
+              -alias wechat \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass android123 \
+              -keypass android123 \
+              -dname "CN=WeChat, OU=Dev, O=Dev, L=City, ST=State, C=CN"
+          fi
+
+      - name: Build release APK
+        run: gradle -p android assembleRelease --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WeChat-Android-APK
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
