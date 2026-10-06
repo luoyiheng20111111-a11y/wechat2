@@ -8,6 +8,7 @@ object AppSettings {
     private const val PROACTIVE_MINUTES = "proactive_minutes"
     private const val REPLY_DELAY_MAX = "reply_delay_max_seconds"
     private const val CUSTOM_SYSTEM_PROMPT = "custom_system_prompt"
+    private const val SPLIT_REPLIES = "split_replies"
 
     // 对话双方昵称（对应 iOS 端预留；为空时回退到默认值）
     private const val CHAT_DISPLAY_NAME = "chat_display_name"
@@ -62,6 +63,14 @@ object AppSettings {
             } else {
                 prefs.edit().putString(CUSTOM_SYSTEM_PROMPT, value).apply()
             }
+        }
+
+    // MARK: - 回复分条发送（New Bing 气泡机制：AI 回复拆成多条连续气泡）
+
+    var splitReplies: Boolean
+        get() = prefs.getBoolean(SPLIT_REPLIES, true)
+        set(value) {
+            prefs.edit().putBoolean(SPLIT_REPLIES, value).apply()
         }
 
     // MARK: - 对方昵称（聊天列表 / 顶栏 / 通知标题 / 提示词人设名）

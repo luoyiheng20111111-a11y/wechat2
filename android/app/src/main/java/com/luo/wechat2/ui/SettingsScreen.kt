@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -56,6 +57,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var delayText by rememberSaveable {
         mutableStateOf(AppSettings.replyDelayMaxSeconds.toString())
     }
+    var splitOn by rememberSaveable { mutableStateOf(AppSettings.splitReplies) }
     var promptText by rememberSaveable {
         mutableStateOf(
             AppSettings.customSystemPrompt ?: AIService.defaultSystemPromptText
@@ -78,6 +80,7 @@ fun SettingsScreen(onBack: () -> Unit) {
         AppSettings.apiKey = cleanKey
         AppSettings.proactiveMinutes = maxOf(1, minutes)
         AppSettings.replyDelayMaxSeconds = delaySeconds.coerceIn(0, 600)
+        AppSettings.splitReplies = splitOn
 
         // 对方昵称：存储键按名字拼接，改名前先把聊天记录迁移到新名字
         val newChatName = chatNameText.trim().ifEmpty { AppSettings.chatDisplayName }
@@ -93,6 +96,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 
         minutesText = AppSettings.proactiveMinutes.toString()
         delayText = AppSettings.replyDelayMaxSeconds.toString()
+        splitOn = AppSettings.splitReplies
 
         // 提示词：清空或改回默认内容 → 恢复内置提示词（与 iOS 一致）
         val trimmedPrompt = promptText.trim()
@@ -210,6 +214,35 @@ fun SettingsScreen(onBack: () -> Unit) {
 
                     HintText(
                         text = "AI 回复前会在 0 到该秒数之间随机等待。0 表示立即回复，最多 600 秒。"
+                    )
+                }
+            }
+
+            SectionTitle(text = "回复分条")
+
+            SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "AI 回复分条发送",
+                            fontSize = 16.sp,
+                            color = Color.Black,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = splitOn,
+                            onCheckedChange = { splitOn = it }
+                        )
+                    }
+
+                    HintText(
+                        text = "开启后 AI 回复按行拆成最多 4 条气泡，间隔 0.6~1.5 秒逐条到达，" +
+                            "像真人连发微信。关闭则一次显示整条回复。保存后生效。"
                     )
                 }
             }

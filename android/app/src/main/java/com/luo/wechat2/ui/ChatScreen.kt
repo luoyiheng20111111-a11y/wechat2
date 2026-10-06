@@ -91,24 +91,41 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
 
         handler.postDelayed({
             AIService.sendMessage(ChatStorage.loadMessages(chat.name)) { reply ->
-                val updated = ChatStorage.loadMessages(chat.name).toMutableList()
-                updated.add(Message(text = reply, isMe = false))
+                val parts = if (AppSettings.splitReplies) splitReplyBubbles(reply)
+                            else listOf(reply)
 
-                ChatStorage.saveMessages(updated, chat.name)
-                ChatStorage.saveLastMessage(reply, chat.name)
+                // 逐条落地，模拟真人连发；未读/通知只在第一条触发一次
+                fun appendBubble(index: Int) {
+                    val updated = ChatStorage.loadMessages(chat.name).toMutableList()
+                    updated.add(Message(text = parts[index], isMe = false))
 
-                // 不在会话里（iOS 原逻辑）或 App 已退到后台 → 记未读
-                if (!isActive || !appForeground) {
-                    ChatStorage.addUnread(chat.name)
+                    ChatStorage.saveMessages(updated, chat.name)
+                    ChatStorage.saveLastMessage(parts[index], chat.name)
+
+                    if (index == 0) {
+                        // 不在会话里（iOS 原逻辑）或 App 已退到后台 → 记未读
+                        if (!isActive || !appForeground) {
+                            ChatStorage.addUnread(chat.name)
+                        }
+
+                        // App 不在前台时直接发通知：后台也能收到消息（显示整条回复）
+                        if (!appForeground) {
+                            ProactiveMessageManager.showReplyNotification(chat.name, reply)
+                        }
+                    }
+
+                    if (index == parts.lastIndex) {
+                        // AI 回复全部落地后，再重新开始计时
+                        ProactiveMessageManager.resetTimer(chat.name)
+                    } else {
+                        handler.postDelayed(
+                            { appendBubble(index + 1) },
+                            Random.nextLong(600L, 1501L)
+                        )
+                    }
                 }
 
-                // App 不在前台时直接发通知：后台也能收到消息
-                if (!appForeground) {
-                    ProactiveMessageManager.showReplyNotification(chat.name, reply)
-                }
-
-                // AI 回复完成后，再重新开始计时
-                ProactiveMessageManager.resetTimer(chat.name)
+                appendBubble(0)
             }
         }, delay)
     }
@@ -192,6 +209,37 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
             onSend = { sendMessage() }
         )
     }
+}
+
+// MARK: - 回复拆分（New Bing 气泡机制：每句一个气泡，最多 4 条）
+
+private fun splitReplyBubbles(reply: String): List<String> {
+    val text = reply.trim()
+    if (text.isEmpty()) return listOf(reply)
+
+    // 1) 空行分块
+    val blocks = text.split(Regex("\n{2,}"))
+        .map { it.trim() }.filter { it.isNotEmpty() }
+
+    val parts: List<String> = if (blocks.size > 1) {
+        blocks
+    } else {
+        // 2) 换行分行
+        val lines = text.split('\n')
+            .map { it.trim() }.filter { it.isNotEmpty() }
+        if (lines.size > 1) {
+            lines
+        } else {
+            // 3) 单行长文本按句号/叹号/问号/分号断句
+            text.split(Regex("(?<=[。！？!?；;])\\s*"))
+                .map { it.trim() }.filter { it.isNotEmpty() }
+        }
+    }
+
+    val safe = parts.ifEmpty { listOf(text) }
+    if (safe.size <= 4) return safe
+    // 超过 4 条：前 3 条保留，其余并入第 4 条，防拆太碎
+    return safe.take(3) + safe.drop(3).joinToString("\n")
 }
 
 // MARK: - Message Row
