@@ -1,0 +1,19 @@
+name: Debug A
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore keystore from secret (fixed signature)
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "secret-present len=${#KEYSTORE_B64}"
+          else
+            echo "secret-not-set"
+          fi
