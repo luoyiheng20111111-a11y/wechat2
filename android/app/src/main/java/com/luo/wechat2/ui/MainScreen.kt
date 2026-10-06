@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.luo.wechat2.data.AppSettings
 import com.luo.wechat2.data.AvatarImageStore
 import com.luo.wechat2.data.ChatItem
 import com.luo.wechat2.data.ChatStorage
@@ -269,7 +270,7 @@ private fun MeScreen(onOpenAiSettings: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // 对应 iOS 的 PhotosPicker：选图 → 压缩 → 存为黑咲的聊天头像
+    // 对应 iOS 的 PhotosPicker：选图 → 压缩 → 存为聊天头像
     val avatarPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -365,7 +366,7 @@ private fun MeScreen(onOpenAiSettings: () -> Unit) {
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "给 黑咲 上传一张照片",
+                                text = "给 ${AppSettings.chatDisplayName} 上传一张照片",
                                 fontSize = 13.sp,
                                 color = SecondaryText
                             )

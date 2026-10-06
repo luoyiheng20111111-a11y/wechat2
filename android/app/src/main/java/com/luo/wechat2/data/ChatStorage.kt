@@ -83,6 +83,34 @@ object ChatStorage {
 
     // MARK: - Messages
 
+    // 存储键按名字拼接，改名时整体迁移，保证聊天记录不丢
+    // （头像键固定为 administerphoto，与名字无关，不需要迁移）
+    @Synchronized
+    fun renameChat(oldName: String, newName: String) {
+        if (oldName.isEmpty() || newName.isEmpty() || oldName == newName) return
+
+        val editor = prefs.edit()
+
+        prefs.getString(messagesKey(oldName), null)?.let {
+            editor.putString(messagesKey(newName), it)
+        }
+        editor.remove(messagesKey(oldName))
+
+        prefs.getString(lastMessageKey(oldName), null)?.let {
+            editor.putString(lastMessageKey(newName), it)
+        }
+        editor.remove(lastMessageKey(oldName))
+
+        if (prefs.contains(unreadKey(oldName))) {
+            editor.putInt(unreadKey(newName), prefs.getInt(unreadKey(oldName), 0))
+        }
+        editor.remove(unreadKey(oldName))
+
+        editor.apply()
+        notifyChange()
+    }
+
+    @Synchronized
     fun loadMessages(chatName: String): List<Message> {
         val raw = prefs.getString(messagesKey(chatName), null) ?: return emptyList()
 
@@ -102,6 +130,7 @@ object ChatStorage {
         }
     }
 
+    @Synchronized
     fun saveMessages(messages: List<Message>, chatName: String) {
         val array = JSONArray()
         messages.forEach { message ->
@@ -116,6 +145,7 @@ object ChatStorage {
         notifyChange()
     }
 
+    @Synchronized
     fun saveIncomingMessage(message: Message, chatName: String) {
         val messages = loadMessages(chatName).toMutableList()
         messages.add(message)

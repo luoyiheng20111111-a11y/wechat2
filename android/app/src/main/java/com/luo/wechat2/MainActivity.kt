@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.luo.wechat2.data.AppSettings
 import com.luo.wechat2.ui.MainScreen
 import com.luo.wechat2.ui.WeChatTheme
 
@@ -29,7 +30,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        ProactiveMessageManager.start(chatName = "黑咲")
+        ProactiveMessageManager.start(chatName = AppSettings.chatDisplayName)
     }
 
     // 标记前后台：回复到达时据此决定加未读 / 发通知

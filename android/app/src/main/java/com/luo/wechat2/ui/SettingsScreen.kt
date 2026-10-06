@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.luo.wechat2.ProactiveMessageManager
 import com.luo.wechat2.data.AppSettings
+import com.luo.wechat2.data.ChatStorage
 import com.luo.wechat2.network.AIService
 import kotlinx.coroutines.delay
 
@@ -47,6 +48,8 @@ import kotlinx.coroutines.delay
 fun SettingsScreen(onBack: () -> Unit) {
 
     var apiKey by rememberSaveable { mutableStateOf(AppSettings.apiKey) }
+    var chatNameText by rememberSaveable { mutableStateOf(AppSettings.chatDisplayName) }
+    var userNameText by rememberSaveable { mutableStateOf(AppSettings.userDisplayName) }
     var minutesText by rememberSaveable {
         mutableStateOf(AppSettings.proactiveMinutes.toString())
     }
@@ -76,6 +79,18 @@ fun SettingsScreen(onBack: () -> Unit) {
         AppSettings.proactiveMinutes = maxOf(1, minutes)
         AppSettings.replyDelayMaxSeconds = delaySeconds.coerceIn(0, 600)
 
+        // 对方昵称：存储键按名字拼接，改名前先把聊天记录迁移到新名字
+        val newChatName = chatNameText.trim().ifEmpty { AppSettings.chatDisplayName }
+        if (newChatName != AppSettings.chatDisplayName) {
+            ChatStorage.renameChat(AppSettings.chatDisplayName, newChatName)
+        }
+        AppSettings.chatDisplayName = newChatName
+        AppSettings.userDisplayName = userNameText.trim()
+            .ifEmpty { AppSettings.userDisplayName }
+
+        chatNameText = AppSettings.chatDisplayName
+        userNameText = AppSettings.userDisplayName
+
         minutesText = AppSettings.proactiveMinutes.toString()
         delayText = AppSettings.replyDelayMaxSeconds.toString()
 
@@ -90,8 +105,8 @@ fun SettingsScreen(onBack: () -> Unit) {
         promptText = AppSettings.customSystemPrompt
             ?: AIService.defaultSystemPromptText
 
-        // 保存后立即按照新的时间重新计时
-        ProactiveMessageManager.resetTimer(chatName = "黑咲")
+        // 保存后立即按照新的时间重新计时（用改名后的名字）
+        ProactiveMessageManager.resetTimer(chatName = AppSettings.chatDisplayName)
 
         showSaved = true
     }
@@ -114,6 +129,29 @@ fun SettingsScreen(onBack: () -> Unit) {
                 .background(GroupedBackground)
         ) {
             Spacer(modifier = Modifier.height(8.dp))
+
+            SectionTitle(text = "对话")
+
+            SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Column {
+                    NameRow(
+                        label = "对方昵称",
+                        value = chatNameText,
+                        onValueChange = { chatNameText = it }
+                    )
+
+                    NameRow(
+                        label = "我的昵称",
+                        value = userNameText,
+                        onValueChange = { userNameText = it }
+                    )
+
+                    HintText(
+                        text = "对方昵称显示在聊天列表、顶栏和通知里，同时作为 AI 的人设名字；" +
+                            "我的昵称是 AI 对你的称呼。保存后聊天记录自动保留。"
+                    )
+                }
+            }
 
             SectionTitle(text = "DeepSeek")
 
@@ -275,6 +313,41 @@ private fun NumberRow(
             text = unit,
             fontSize = 16.sp,
             color = SecondaryText
+        )
+    }
+}
+
+// MARK: - Name Row
+
+@Composable
+private fun NameRow(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 16.sp,
+            color = Color.Black,
+            modifier = Modifier.weight(1f)
+        )
+
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.width(140.dp),
+            textStyle = TextStyle(
+                color = Color.Black,
+                fontSize = 16.sp,
+                textAlign = TextAlign.End
+            ),
+            singleLine = true
         )
     }
 }

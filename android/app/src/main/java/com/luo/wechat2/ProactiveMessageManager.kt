@@ -31,7 +31,7 @@ object ProactiveMessageManager {
     private val isGenerating = AtomicBoolean(false)
 
     // 进程被杀后由广播拉起时会用默认值（App 只有一个会话，与 iOS 行为一致）
-    var currentChatName: String = "黑咲"
+    var currentChatName: String = AppSettings.chatDisplayName
         private set
 
     // MARK: - Start

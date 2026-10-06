@@ -19,12 +19,14 @@ data class ChatItem(
     }
 }
 
-val defaultChatList: List<ChatItem> = listOf(
-    ChatItem(
-        avatar = "administerphoto",
-        name = "黑咲",
-        lastMessage = "[图片]",
-        time = "10:20",
-        unread = 0
+// 动态取值：用户在设置里改了对方昵称后，列表/顶栏标题立即跟着变
+val defaultChatList: List<ChatItem>
+    get() = listOf(
+        ChatItem(
+            avatar = "administerphoto",
+            name = AppSettings.chatDisplayName,
+            lastMessage = "[图片]",
+            time = "10:20",
+            unread = 0
+        )
     )
-)

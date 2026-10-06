@@ -205,9 +205,17 @@ object AIService {
 
     val defaultSystemPromptText: String = SYSTEM_PROMPT.trim() + "\n\n" + HUMAN_CHAT_PROMPT.trim()
 
+    // 发送前把模板里的“黑咲 / 罗以恒”替换成用户在设置里改的昵称
+    // （设置页编辑框显示的仍是原始模板，保存对比逻辑不受影响）
+    private fun applyNames(text: String): String =
+        text.replace("黑咲", AppSettings.chatDisplayName)
+            .replace("罗以恒", AppSettings.userDisplayName)
+
+    private fun proactivePrompt(): String = applyNames(PROACTIVE_PROMPT.trim())
+
     private fun fullSystemPrompt(): String {
         val now = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-        val base = AppSettings.customSystemPrompt ?: defaultSystemPromptText
+        val base = applyNames(AppSettings.customSystemPrompt ?: defaultSystemPromptText)
         return base + "\n\n当前时间：" + now
     }
 
@@ -226,7 +234,7 @@ object AIService {
     // MARK: - Proactive Message
 
     fun sendProactiveMessage(messages: List<Message>, completion: (String) -> Unit) {
-        send(messages, fullSystemPrompt() + "\n\n" + PROACTIVE_PROMPT.trim(), completion)
+        send(messages, fullSystemPrompt() + "\n\n" + proactivePrompt(), completion)
     }
 
     // 供闹钟广播在后台线程阻塞调用（进程可能刚被系统拉起，不能依赖主线程回调）
@@ -238,7 +246,7 @@ object AIService {
         }
 
         return try {
-            request(apiKey, fullSystemPrompt() + "\n\n" + PROACTIVE_PROMPT.trim(), messages)
+            request(apiKey, fullSystemPrompt() + "\n\n" + proactivePrompt(), messages)
         } catch (e: IOException) {
             "网络请求失败，请检查网络连接"
         } catch (e: Exception) {
