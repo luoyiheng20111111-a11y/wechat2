@@ -9,8 +9,11 @@
 # 产物：Artifacts 里的 WeChat-Android-APK（app-release.apk，已签名可直接安装）
 #
 # 签名说明：
-#   首次运行会生成 android/keystore/release.jks 并用 actions/cache 缓存，
+#   优先从 Secret RELEASE_KEYSTORE_B64 解码 keystore（固定签名，保证每次构建
+#   的包都能覆盖安装升级，不会因签名变化导致用户被迫卸载丢聊天记录）。
+#   Secret 缺失时退回旧逻辑：actions/cache 缓存，首次运行生成 release.jks。
 #   密码写在 android/app/build.gradle（android123 / 别名 wechat），仅供本项目自用。
+#   本地备份在 android/keystore/release.jks（已被 android/.gitignore 忽略，不进 git）。
 # ============================================================
 name: Build Android APK
 
@@ -47,6 +50,23 @@ jobs:
         with:
           path: android/keystore/release.jks
           key: android-release-keystore-v1
+
+      # 固定签名：Secret 存在时以它为准（覆盖缓存恢复的文件），
+      # 打印 sha256 便于核对签名与历史包一致
+      - name: Restore keystore from secret (fixed signature)
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            mkdir -p android/keystore
+            printf '%s' "$KEYSTORE_B64" | base64 -d > android/keystore/release.jks
+            echo "keystore-source=secret"
+          else
+            echo "keystore-source=cache-or-generated (secret not set)"
+          fi
+          if [ -f android/keystore/release.jks ]; then
+            echo "keystore-sha256=$(sha256sum android/keystore/release.jks | cut -d' ' -f1)"
+          fi
 
       - name: Create release keystore
         run: |
