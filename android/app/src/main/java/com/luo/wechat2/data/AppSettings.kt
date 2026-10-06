@@ -9,6 +9,8 @@ object AppSettings {
     private const val REPLY_DELAY_MAX = "reply_delay_max_seconds"
     private const val CUSTOM_SYSTEM_PROMPT = "custom_system_prompt"
     private const val SPLIT_REPLIES = "split_replies"
+    private const val MIMO_API_KEY = "mimo_api_key"
+    private const val VOICE_PERCENT = "voice_percent"
 
     // 对话双方昵称（对应 iOS 端预留；为空时回退到默认值）
     private const val CHAT_DISPLAY_NAME = "chat_display_name"
@@ -71,6 +73,22 @@ object AppSettings {
         get() = prefs.getBoolean(SPLIT_REPLIES, true)
         set(value) {
             prefs.edit().putBoolean(SPLIT_REPLIES, value).apply()
+        }
+
+    // MARK: - MiMo TTS API Key（小米 MiMo 平台申请）
+
+    var mimoApiKey: String
+        get() = prefs.getString(MIMO_API_KEY, "") ?: ""
+        set(value) {
+            prefs.edit().putString(MIMO_API_KEY, value.trim()).apply()
+        }
+
+    // MARK: - 语音概率（所有 AI 文本按 x% 概率转语音，0 = 关闭）
+
+    var voicePercent: Int
+        get() = prefs.getInt(VOICE_PERCENT, 0).coerceIn(0, 100)
+        set(value) {
+            prefs.edit().putInt(VOICE_PERCENT, value.coerceIn(0, 100)).apply()
         }
 
     // MARK: - 对方昵称（聊天列表 / 顶栏 / 通知标题 / 提示词人设名）

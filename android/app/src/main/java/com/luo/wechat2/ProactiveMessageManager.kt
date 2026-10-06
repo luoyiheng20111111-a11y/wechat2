@@ -16,6 +16,7 @@ import com.luo.wechat2.data.AppSettings
 import com.luo.wechat2.data.ChatStorage
 import com.luo.wechat2.data.Message
 import com.luo.wechat2.network.AIService
+import com.luo.wechat2.network.MiMoTTSService
 import java.util.concurrent.atomic.AtomicBoolean
 
 // 对应 iOS 的 ProactiveMessageManager
@@ -101,11 +102,17 @@ object ProactiveMessageManager {
             val messages = ChatStorage.loadMessages(chatName)
             val reply = AIService.sendProactiveMessageBlocking(messages)
 
-            ChatStorage.saveIncomingMessage(
-                Message(text = reply, isMe = false),
-                chatName
-            )
+            // 按概率转语音条（后台线程可直接阻塞合成）；失败回退文字
+            val message = if (MiMoTTSService.shouldSynthesize(reply)) {
+                MiMoTTSService.synthesize(reply).getOrNull()
+                    ?.let { MiMoTTSService.buildVoiceMessage(reply, it) }
+            } else {
+                null
+            } ?: Message(text = reply, isMe = false)
 
+            ChatStorage.saveIncomingMessage(message, chatName)
+
+            // 通知永远显示文字（通知里不放音频）
             showNotification(chatName, reply, PROACTIVE_NOTIFICATION_ID)
         } finally {
             isGenerating.set(false)

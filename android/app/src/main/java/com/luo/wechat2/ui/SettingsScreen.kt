@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.luo.wechat2.ProactiveMessageManager
 import com.luo.wechat2.data.AppSettings
 import com.luo.wechat2.data.ChatStorage
+import com.luo.wechat2.data.VoiceSampleStore
 import com.luo.wechat2.network.AIService
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -64,6 +65,12 @@ fun SettingsScreen(onBack: () -> Unit) {
         mutableStateOf(AppSettings.replyDelayMaxSeconds.toString())
     }
     var splitOn by rememberSaveable { mutableStateOf(AppSettings.splitReplies) }
+    var mimoKeyText by rememberSaveable { mutableStateOf(AppSettings.mimoApiKey) }
+    var voicePercentText by rememberSaveable {
+        mutableStateOf(AppSettings.voicePercent.toString())
+    }
+    var voiceStatus by remember { mutableStateOf<String?>(null) }
+    var sampleLabel by remember { mutableStateOf(VoiceSampleStore.label() ?: "未选择") }
     var promptText by rememberSaveable {
         mutableStateOf(
             AppSettings.customSystemPrompt ?: AIService.defaultSystemPromptText
@@ -85,6 +92,31 @@ fun SettingsScreen(onBack: () -> Unit) {
         if (transferStatus != null) {
             delay(4000)
             transferStatus = null
+        }
+    }
+
+    LaunchedEffect(voiceStatus) {
+        if (voiceStatus != null) {
+            delay(4000)
+            voiceStatus = null
+        }
+    }
+
+    // MARK: 选择参考音色（音色克隆用的 mp3/wav 样本）
+
+    val sampleLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            VoiceSampleStore.save(uri).fold(
+                onSuccess = {
+                    sampleLabel = VoiceSampleStore.label() ?: "未选择"
+                    voiceStatus = "音色导入成功"
+                },
+                onFailure = { e ->
+                    voiceStatus = e.message ?: "音色导入失败"
+                }
+            )
         }
     }
 
@@ -144,6 +176,9 @@ fun SettingsScreen(onBack: () -> Unit) {
         AppSettings.replyDelayMaxSeconds = delaySeconds.coerceIn(0, 600)
         AppSettings.splitReplies = splitOn
 
+        AppSettings.mimoApiKey = mimoKeyText
+        AppSettings.voicePercent = voicePercentText.toIntOrNull() ?: 0
+
         // 对方昵称：存储键按名字拼接，改名前先把聊天记录迁移到新名字
         val newChatName = chatNameText.trim().ifEmpty { AppSettings.chatDisplayName }
         if (newChatName != AppSettings.chatDisplayName) {
@@ -159,6 +194,8 @@ fun SettingsScreen(onBack: () -> Unit) {
         minutesText = AppSettings.proactiveMinutes.toString()
         delayText = AppSettings.replyDelayMaxSeconds.toString()
         splitOn = AppSettings.splitReplies
+        mimoKeyText = AppSettings.mimoApiKey
+        voicePercentText = AppSettings.voicePercent.toString()
 
         // 提示词：清空或改回默认内容 → 恢复内置提示词（与 iOS 一致）
         val trimmedPrompt = promptText.trim()
@@ -355,6 +392,88 @@ fun SettingsScreen(onBack: () -> Unit) {
                             )
                         )
                     }
+                }
+            }
+
+            SectionTitle(text = "语音")
+
+            SectionCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Column {
+                    NumberRow(
+                        label = "语音概率",
+                        value = voicePercentText,
+                        onValueChange = {
+                            voicePercentText = it.filter { c -> c.isDigit() }
+                        },
+                        unit = "%"
+                    )
+
+                    HintText(
+                        text = "AI 每条回复按这个概率转成语音条（含主动消息），" +
+                            "0 表示全部发文字，100 表示全部转语音。"
+                    )
+
+                    BasicTextField(
+                        value = mimoKeyText,
+                        onValueChange = { mimoKeyText = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp),
+                        textStyle = TextStyle(
+                            color = Color.Black,
+                            fontSize = 16.sp
+                        ),
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password
+                        ),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "MiMo API Key（小米 MiMo 平台申请，只保存在本机）",
+                        fontSize = 12.sp,
+                        color = SecondaryText,
+                        modifier = Modifier.padding(horizontal = 14.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    TransferRow(
+                        label = "参考音色",
+                        action = "选择"
+                    ) {
+                        sampleLauncher.launch(arrayOf("audio/mpeg", "audio/mp3", "audio/wav"))
+                    }
+
+                    Text(
+                        text = sampleLabel,
+                        fontSize = 12.sp,
+                        color = SecondaryText,
+                        modifier = Modifier.padding(
+                            horizontal = 14.dp,
+                            vertical = 6.dp
+                        )
+                    )
+
+                    voiceStatus?.let { status ->
+                        Text(
+                            text = status,
+                            fontSize = 12.sp,
+                            color = WeChatGreen,
+                            modifier = Modifier.padding(
+                                horizontal = 14.dp,
+                                vertical = 6.dp
+                            )
+                        )
+                    }
+
+                    HintText(
+                        text = "选一段你的录音（mp3/wav，7.5MB 以内）作为音色克隆的参考，" +
+                            "合成的语音会模仿这个音色。失败时自动回退成文字气泡。"
+                    )
                 }
             }
 

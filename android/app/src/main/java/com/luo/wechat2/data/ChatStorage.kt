@@ -122,10 +122,13 @@ object ChatStorage {
             (0 until array.length()).map { index ->
                 val item = array.getJSONObject(index)
                 val id = item.optString("id")
+                val voicePath = item.optString("voicePath")
                 Message(
                     id = if (id.isEmpty()) UUID.randomUUID().toString() else id,
                     text = item.optString("text"),
-                    isMe = item.optBoolean("isMe", false)
+                    isMe = item.optBoolean("isMe", false),
+                    voicePath = if (voicePath.isEmpty()) null else voicePath,
+                    voiceDuration = item.optInt("voiceDuration", 0)
                 )
             }
         } catch (e: Exception) {
@@ -136,12 +139,15 @@ object ChatStorage {
     private fun messagesToJson(messages: List<Message>): JSONArray {
         val array = JSONArray()
         messages.forEach { message ->
-            array.put(
-                JSONObject()
-                    .put("id", message.id)
-                    .put("text", message.text)
-                    .put("isMe", message.isMe)
-            )
+            val item = JSONObject()
+                .put("id", message.id)
+                .put("text", message.text)
+                .put("isMe", message.isMe)
+            if (message.voicePath != null) {
+                item.put("voicePath", message.voicePath)
+                    .put("voiceDuration", message.voiceDuration)
+            }
+            array.put(item)
         }
         return array
     }

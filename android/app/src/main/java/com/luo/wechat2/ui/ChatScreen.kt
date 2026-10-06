@@ -1,5 +1,6 @@
 package com.luo.wechat2.ui
 
+import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.foundation.background
@@ -27,6 +28,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,6 +55,7 @@ import com.luo.wechat2.data.ChatItem
 import com.luo.wechat2.data.ChatStorage
 import com.luo.wechat2.data.Message
 import com.luo.wechat2.network.AIService
+import com.luo.wechat2.network.MiMoTTSService
 import kotlin.random.Random
 
 // MARK: - Chat Screen
@@ -67,6 +71,57 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
     val appForeground by AppState.foreground.collectAsState()
     val listState = rememberLazyListState()
     val handler = remember { Handler(Looper.getMainLooper()) }
+
+    // MARK: 语音播放（语音条点按播放 / 再点停止）
+
+    var playingId by remember(chat.name) { mutableStateOf<String?>(null) }
+    var mediaPlayer by remember(chat.name) { mutableStateOf<MediaPlayer?>(null) }
+
+    fun stopPlayback() {
+        mediaPlayer?.let { mp ->
+            try {
+                mp.stop()
+            } catch (ignored: Exception) {
+            }
+            try {
+                mp.release()
+            } catch (ignored: Exception) {
+            }
+        }
+        mediaPlayer = null
+        playingId = null
+    }
+
+    fun togglePlay(message: Message) {
+        if (message.voicePath == null) return
+
+        if (playingId == message.id) {
+            stopPlayback()
+            return
+        }
+
+        stopPlayback()
+        try {
+            val mp = MediaPlayer()
+            mp.setDataSource(message.voicePath)
+            mp.setOnCompletionListener {
+                try {
+                    mp.release()
+                } catch (ignored: Exception) {
+                }
+                if (playingId == message.id) {
+                    mediaPlayer = null
+                    playingId = null
+                }
+            }
+            mp.prepare()
+            mp.start()
+            mediaPlayer = mp
+            playingId = message.id
+        } catch (ignored: Exception) {
+            playingId = null
+        }
+    }
 
     // MARK: 发送消息
 
@@ -90,7 +145,7 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
         }
 
         handler.postDelayed({
-            AIService.sendMessage(ChatStorage.loadMessages(chat.name)) { reply ->
+            fun appendTextReply(reply: String) {
                 val parts = if (AppSettings.splitReplies) splitReplyBubbles(reply)
                             else listOf(reply)
 
@@ -126,6 +181,45 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
                 }
 
                 appendBubble(0)
+            }
+
+            // 语音条消息：text 仍保留（列表预览 / 通知 / AI 上下文），界面只显示语音条
+            fun appendVoiceMessage(message: Message) {
+                val updated = ChatStorage.loadMessages(chat.name).toMutableList()
+                updated.add(message)
+
+                ChatStorage.saveMessages(updated, chat.name)
+                ChatStorage.saveLastMessage(message.text, chat.name)
+
+                if (!isActive || !appForeground) {
+                    ChatStorage.addUnread(chat.name)
+                }
+
+                if (!appForeground) {
+                    ProactiveMessageManager.showReplyNotification(chat.name, message.text)
+                }
+
+                ProactiveMessageManager.resetTimer(chat.name)
+            }
+
+            AIService.sendMessage(ChatStorage.loadMessages(chat.name)) { reply ->
+                if (MiMoTTSService.shouldSynthesize(reply)) {
+                    // 后台合成，不阻塞 UI；失败自动回退成文字气泡
+                    Thread {
+                        val message = MiMoTTSService.synthesize(reply).getOrNull()
+                            ?.let { MiMoTTSService.buildVoiceMessage(reply, it) }
+
+                        handler.post {
+                            if (message != null) {
+                                appendVoiceMessage(message)
+                            } else {
+                                appendTextReply(reply)
+                            }
+                        }
+                    }.start()
+                } else {
+                    appendTextReply(reply)
+                }
             }
         }, delay)
     }
@@ -168,7 +262,10 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
 
     DisposableEffect(chat.name) {
         isActive = true
-        onDispose { isActive = false }
+        onDispose {
+            isActive = false
+            stopPlayback()
+        }
     }
 
     // MARK: UI
@@ -199,7 +296,9 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
             ) { index ->
                 MessageRow(
                     message = messages[index],
-                    avatar = chat.avatar
+                    avatar = chat.avatar,
+                    isPlaying = playingId == messages[index].id,
+                    onTogglePlay = { togglePlay(messages[index]) }
                 )
             }
         }
@@ -246,7 +345,12 @@ private fun splitReplyBubbles(reply: String): List<String> {
 // MARK: - Message Row
 
 @Composable
-private fun MessageRow(message: Message, avatar: String) {
+private fun MessageRow(
+    message: Message,
+    avatar: String,
+    isPlaying: Boolean = false,
+    onTogglePlay: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -262,35 +366,84 @@ private fun MessageRow(message: Message, avatar: String) {
             ChatAvatar(avatar = avatar, size = 50.dp, corner = 10.dp)
             Spacer(modifier = Modifier.width(10.dp))
 
-            Box(
-                modifier = Modifier
-                    .background(
-                        BubbleIncomingDark,
-                        RoundedCornerShape(5.dp)
-                    )
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
-            ) {
-                Text(
-                    text = message.text,
-                    fontSize = 16.sp,
-                    color = Color.White
+            if (message.voicePath != null) {
+                VoiceBubble(
+                    duration = message.voiceDuration,
+                    isPlaying = isPlaying,
+                    onClick = onTogglePlay
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .background(
+                            BubbleIncomingDark,
+                            RoundedCornerShape(5.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = message.text,
+                        fontSize = 16.sp,
+                        color = Color.White
+                    )
+                }
             }
         } else {
-            Box(
-                modifier = Modifier
-                    .background(
-                        WeChatGreen,
-                        RoundedCornerShape(5.dp)
-                    )
-                    .padding(horizontal = 12.dp, vertical = 9.dp)
-            ) {
-                Text(
-                    text = message.text,
-                    fontSize = 16.sp,
-                    color = Color.Black
+            if (message.voicePath != null) {
+                VoiceBubble(
+                    duration = message.voiceDuration,
+                    isPlaying = isPlaying,
+                    onClick = onTogglePlay
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .background(
+                            WeChatGreen,
+                            RoundedCornerShape(5.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 9.dp)
+                ) {
+                    Text(
+                        text = message.text,
+                        fontSize = 16.sp,
+                        color = Color.Black
+                    )
+                }
             }
+        }
+    }
+}
+
+// MARK: - Voice Bubble（语音条：▶ + 秒数，点按播放 / 停止）
+
+@Composable
+private fun VoiceBubble(
+    duration: Int,
+    isPlaying: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .background(BubbleIncomingDark, RoundedCornerShape(5.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = if (isPlaying) "停止" else "播放",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = "${duration.coerceIn(1, 600)}″",
+                fontSize = 15.sp,
+                color = Color.White
+            )
         }
     }
 }
