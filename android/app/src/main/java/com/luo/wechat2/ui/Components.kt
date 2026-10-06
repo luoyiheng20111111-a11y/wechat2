@@ -62,13 +62,14 @@ fun AppTopBar(
     showBack: Boolean = false,
     onBack: () -> Unit = {},
     actionIcon: ImageVector? = null,
-    onAction: () -> Unit = {}
+    onAction: () -> Unit = {},
+    dark: Boolean = false
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(44.dp)
-            .background(GroupedBackground)
+            .background(if (dark) ChatBarDark else GroupedBackground)
     ) {
         if (showBack) {
             Box(
@@ -81,7 +82,7 @@ fun AppTopBar(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "返回",
-                    tint = Color.Black,
+                    tint = if (dark) Color.White else Color.Black,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -91,7 +92,7 @@ fun AppTopBar(
             text = title,
             fontSize = 17.sp,
             fontWeight = FontWeight.Medium,
-            color = Color.Black,
+            color = if (dark) Color.White else Color.Black,
             textAlign = TextAlign.Center,
             maxLines = 1,
             modifier = Modifier
@@ -111,7 +112,7 @@ fun AppTopBar(
                 Icon(
                     imageVector = actionIcon,
                     contentDescription = null,
-                    tint = Color.Black,
+                    tint = if (dark) Color.White else Color.Black,
                     modifier = Modifier.size(22.dp)
                 )
             }

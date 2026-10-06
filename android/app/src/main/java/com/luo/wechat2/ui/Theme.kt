@@ -17,6 +17,11 @@ val SecondaryText = Color.Black.copy(alpha = 0.6f)
 
 val InactiveIcon = Color(0xFF8A8A8E)
 
+// MARK: - 聊天页深色
+val ChatBackgroundDark = Color(0xFF0D0D0D)   // 聊天背景（近黑，微信深色模式风格）
+val ChatBarDark = Color(0xFF1C1C1E)          // 顶栏 / 输入栏
+val BubbleIncomingDark = Color(0xFF2C2C2E)   // 对方气泡
+
 private val WeChatColorScheme = lightColorScheme(
     primary = WeChatGreen,
     onPrimary = Color.White,

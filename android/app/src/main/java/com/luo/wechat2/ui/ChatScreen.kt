@@ -176,12 +176,13 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(GroupedBackground)
+            .background(ChatBackgroundDark)
     ) {
         AppTopBar(
             title = chat.name,
             showBack = true,
-            onBack = onBack
+            onBack = onBack,
+            dark = true
         )
 
         LazyColumn(
@@ -189,7 +190,7 @@ fun ChatScreen(chat: ChatItem, onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(GroupedBackground),
+                .background(ChatBackgroundDark),
             contentPadding = PaddingValues(top = 15.dp, bottom = 8.dp)
         ) {
             items(
@@ -264,7 +265,7 @@ private fun MessageRow(message: Message, avatar: String) {
             Box(
                 modifier = Modifier
                     .background(
-                        Color.Black.copy(alpha = 0.3f),
+                        BubbleIncomingDark,
                         RoundedCornerShape(5.dp)
                     )
                     .padding(horizontal = 12.dp, vertical = 10.dp)
@@ -272,14 +273,14 @@ private fun MessageRow(message: Message, avatar: String) {
                 Text(
                     text = message.text,
                     fontSize = 16.sp,
-                    color = Color.Black
+                    color = Color.White
                 )
             }
         } else {
             Box(
                 modifier = Modifier
                     .background(
-                        WeChatGreen.copy(alpha = 0.2f),
+                        WeChatGreen,
                         RoundedCornerShape(5.dp)
                     )
                     .padding(horizontal = 12.dp, vertical = 9.dp)
@@ -305,14 +306,14 @@ private fun InputBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SystemGray6)
+            .background(ChatBarDark)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = Icons.Filled.Mic,
             contentDescription = "语音",
-            tint = Color.Black,
+            tint = Color.White,
             modifier = Modifier.size(24.dp)
         )
 
@@ -324,7 +325,7 @@ private fun InputBar(
             modifier = Modifier
                 .weight(1f)
                 .heightIn(min = 38.dp)
-                .background(Color.Black, RoundedCornerShape(5.dp))
+                .background(BubbleIncomingDark, RoundedCornerShape(5.dp))
                 .padding(horizontal = 10.dp, vertical = 9.dp),
             textStyle = TextStyle(
                 color = Color.White,
@@ -340,7 +341,7 @@ private fun InputBar(
         Icon(
             imageVector = Icons.Filled.EmojiEmotions,
             contentDescription = "表情",
-            tint = Color.Black,
+            tint = Color.White,
             modifier = Modifier.size(24.dp)
         )
 
@@ -365,7 +366,7 @@ private fun InputBar(
             Icon(
                 imageVector = Icons.Filled.AddCircle,
                 contentDescription = "更多",
-                tint = Color.Black,
+                tint = Color.White,
                 modifier = Modifier.size(24.dp)
             )
         }
